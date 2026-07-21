@@ -1,190 +1,197 @@
-pytchat
-=======
+# FORK pytchat
 
-pytchat is a python library for fetching youtube live chat.
- 
+A maintained fork of **pytchat**, a Python library for fetching YouTube Live Chat messages.
 
 <br><br><br>
+
 ## Description
-pytchat is a python library for fetching youtube live chat
-without using Selenium or BeautifulSoup.
 
-Other features:
-+ Customizable [chat data processors](https://github.com/taizan-hokuto/pytchat/wiki/ChatProcessor) including youtube api compatible one.
-+ Available on asyncio context. 
-+ Quick fetching of initial chat data by generating continuation params
-instead of web scraping.
+This repository is a maintained fork of the original **pytchat** project.
 
-For more detailed information, see [wiki](https://github.com/taizan-hokuto/pytchat/wiki). <br>
+`pytchat` is a Python library for fetching YouTube Live Chat messages **without using Selenium or BeautifulSoup**.
+
+### Features
+
+- Customizable [chat data processors](https://github.com/taizan-hokuto/pytchat/wiki/ChatProcessor), including a YouTube API-compatible processor.
+- Asyncio support.
+- Fast retrieval of initial chat data by generating continuation parameters instead of relying on web scraping.
+- Updated to keep the library working with recent YouTube changes.
+
+For more detailed information, see the [wiki](https://github.com/taizan-hokuto/pytchat/wiki). <br>
 [wiki (Japanese)](https://github.com/taizan-hokuto/pytchat/wiki/Home_jp)
 
-## Install
-```python
-pip install pytchat
+## Installation (Fork)
+
+```bash
+pip install git+https://github.com/Vadim0102/pytchat.git
 ```
+
 ## Examples
 
-
 ### Fetch chat data (see [wiki](https://github.com/taizan-hokuto/pytchat/wiki/PytchatCore))
+
 ```python
 import pytchat
+
 chat = pytchat.create(video_id="uIx8l2xlYVY")
+
 while chat.is_alive():
-    for c in chat.get().sync_items():
-        print(f"{c.datetime} [{c.author.name}]- {c.message}")
+    for c in chat.get().items:
+        print(f"{c.datetime} [{c.author.name}] - {c.message}")
 ```
 
-
 ### Output JSON format string (feature of [DefaultProcessor](https://github.com/taizan-hokuto/pytchat/wiki/DefaultProcessor))
+
 ```python
 import pytchat
 import time
 
 chat = pytchat.create(video_id="uIx8l2xlYVY")
+
 while chat.is_alive():
     print(chat.get().json())
     time.sleep(5)
-    '''
-    # Each chat item can also be output in JSON format.
+
+    """
+    Each chat item can also be exported individually as JSON.
     for c in chat.get().items:
         print(c.json())
-    '''     
+    """
 ```
 
+### Other examples
 
-### other
-+ Fetch chat with a buffer ([LiveChat](https://github.com/taizan-hokuto/pytchat/wiki/LiveChat))
+- Fetch chat with a buffer ([LiveChat](https://github.com/taizan-hokuto/pytchat/wiki/LiveChat))
+- Use with asyncio ([LiveChatAsync](https://github.com/taizan-hokuto/pytchat/wiki/LiveChatAsync))
+- YouTube API-compatible chat processor ([CompatibleProcessor](https://github.com/taizan-hokuto/pytchat/wiki/CompatibleProcessor))
 
-+ Use with asyncio ([LiveChatAsync](https://github.com/taizan-hokuto/pytchat/wiki/LiveChatAsync))
+## Default Processor Structure
 
-+ YT API compatible chat processor ([CompatibleProcessor](https://github.com/taizan-hokuto/pytchat/wiki/CompatibleProcessor))
+Each chat item can be retrieved using the `sync_items()` function.
 
-
-## Structure of Default Processor
-Each item can be got with `sync_items()` function.
 <table>
   <tr>
-    <th>name</th>
-    <th>type</th>
-    <th>remarks</th>
+    <th>Name</th>
+    <th>Type</th>
+    <th>Description</th>
   </tr>
   <tr>
     <td>type</td>
     <td>str</td>
-    <td>"superChat","textMessage","superSticker","newSponsor"</td>
+    <td>"superChat", "textMessage", "superSticker", "newSponsor"</td>
   </tr>
   <tr>
     <td>id</td>
     <td>str</td>
-    <td></td>
+    <td>Chat message ID.</td>
   </tr>
   <tr>
     <td>message</td>
     <td>str</td>
-    <td>emojis are represented by ":(shortcut text):"</td>
+    <td>Message text. Emojis are represented as <code>:(shortcut text):</code>.</td>
   </tr>
   <tr>
     <td>messageEx</td>
     <td>str</td>
-    <td>list of message texts and emoji dicts(id, txt, url).</td>
+    <td>List containing message text and emoji dictionaries (id, text, url).</td>
   </tr>
   <tr>
     <td>timestamp</td>
     <td>int</td>
-    <td>unixtime milliseconds</td>
+    <td>Unix timestamp in milliseconds.</td>
   </tr>
   <tr>
     <td>datetime</td>
     <td>str</td>
-    <td>e.g. "2019-10-10 12:34:56"</td>
+    <td>Example: "2019-10-10 12:34:56"</td>
   </tr>
+  <tr>
     <td>elapsedTime</td>
     <td>str</td>
-    <td>elapsed time. (e.g. "1:02:27") *Replay Only.</td>
+    <td>Elapsed playback time (Replay only). Example: "1:02:27"</td>
   </tr>
   <tr>
     <td>amountValue</td>
     <td>float</td>
-    <td>e.g. 1,234.0</td>
+    <td>Example: 1234.0</td>
   </tr>
   <tr>
     <td>amountString</td>
     <td>str</td>
-    <td>e.g. "$ 1,234"</td>
+    <td>Example: "$1,234"</td>
   </tr>
   <tr>
     <td>currency</td>
     <td>str</td>
-    <td><a href="https://en.wikipedia.org/wiki/ISO_4217">ISO 4217 currency codes</a> (e.g. "USD")</td>
+    <td><a href="https://en.wikipedia.org/wiki/ISO_4217">ISO 4217 currency code</a> (e.g. "USD")</td>
   </tr>
   <tr>
     <td>bgColor</td>
     <td>int</td>
-    <td>RGB Int</td>
+    <td>RGB integer value.</td>
   </tr>
   <tr>
     <td>author</td>
     <td>object</td>
-    <td>see below</td>
+    <td>See the structure below.</td>
   </tr>
 </table>
 
-Structure of author object.
+### Author Object Structure
+
 <table>
   <tr>
-    <th>name</th>
-    <th>type</th>
-    <th>remarks</th>
+    <th>Name</th>
+    <th>Type</th>
+    <th>Description</th>
   </tr>
   <tr>
     <td>name</td>
     <td>str</td>
-    <td></td>
+    <td>Author display name.</td>
   </tr>
   <tr>
     <td>channelId</td>
     <td>str</td>
-    <td>*chatter's channel ID.</td>
+    <td>Author's YouTube channel ID.</td>
   </tr>
   <tr>
     <td>channelUrl</td>
     <td>str</td>
-    <td></td>
+    <td>Author's channel URL.</td>
   </tr>
   <tr>
     <td>imageUrl</td>
     <td>str</td>
-    <td></td>
+    <td>Avatar image URL.</td>
   </tr>
   <tr>
     <td>badgeUrl</td>
     <td>str</td>
-    <td></td>
+    <td>Badge image URL.</td>
   </tr>
   <tr>
     <td>isVerified</td>
     <td>bool</td>
-    <td></td>
+    <td>Whether the author is verified.</td>
   </tr>
   <tr>
     <td>isChatOwner</td>
     <td>bool</td>
-    <td></td>
+    <td>Whether the author owns the stream.</td>
   </tr>
   <tr>
     <td>isChatSponsor</td>
     <td>bool</td>
-    <td></td>
+    <td>Whether the author is a channel member.</td>
   </tr>
   <tr>
     <td>isChatModerator</td>
     <td>bool</td>
-    <td></td>
+    <td>Whether the author is a moderator.</td>
   </tr>
 </table>
 
-## Licence
+## License
 
 [![MIT License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat)](LICENSE)
-
-
