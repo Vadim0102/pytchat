@@ -1,7 +1,7 @@
 import re
 from . import currency
 from .base import BaseRenderer
-superchat_regex = re.compile(r"^(\D*)(\d{1,3}(,\d{3})*(\.\d*)*\b)$")
+superchat_regex = re.compile(r"^(\D*)(\d{1,3}(?:,\d{3})*(?:\.\d*)?\b)$")
 
 
 class LiveChatPaidStickerRenderer(BaseRenderer):

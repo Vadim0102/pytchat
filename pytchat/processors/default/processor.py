@@ -1,6 +1,7 @@
 import asyncio
 import json
 import time
+from collections import deque
 from .custom_encoder import CustomEncoder
 from .renderer.textmessage import LiveChatTextMessageRenderer
 from .renderer.paidmessage import LiveChatPaidMessageRenderer
@@ -124,6 +125,12 @@ class DefaultProcessor(ChatProcessor):
     def __init__(self):
         self.first = True
         self.abs_diff = 0
+
+        # Инициализация кэша для дедупликации
+        self.seen_ids = set()
+        self.id_fifo = deque()
+        self.max_cache_size = 1000
+
         self.renderers = {
             "liveChatTextMessageRenderer": LiveChatTextMessageRenderer(),
             "liveChatPaidMessageRenderer": LiveChatPaidMessageRenderer(),
@@ -138,6 +145,11 @@ class DefaultProcessor(ChatProcessor):
         }
 
     def process(self, chat_components: list):
+        # Безопасная инициализация на случай переопределения конструктора в наследниках
+        if not hasattr(self, 'seen_ids'):
+            self.seen_ids = set()
+            self.id_fifo = deque()
+            self.max_cache_size = 1000
 
         chatlist = []
         timeout = 0
@@ -147,7 +159,7 @@ class DefaultProcessor(ChatProcessor):
                 if component is None:
                     continue
                 timeout += component.get('timeout', 0)
-                chatdata = component.get('chatdata')  # if from Extractor, chatdata is generator.
+                chatdata = component.get('chatdata')
                 if chatdata is None:
                     continue
                 for action in chatdata:
@@ -160,8 +172,21 @@ class DefaultProcessor(ChatProcessor):
                         continue
                     chat = self._parse(item)
                     if chat:
+                        # Проверяем уникальность сообщения по его ID
+                        if chat.id in self.seen_ids:
+                            continue
+
+                        # Сохраняем ID в кэш
+                        self.seen_ids.add(chat.id)
+                        self.id_fifo.append(chat.id)
+
+                        # Ограничиваем размер кэша
+                        if len(self.seen_ids) > self.max_cache_size:
+                            oldest = self.id_fifo.popleft()
+                            self.seen_ids.discard(oldest)
+
                         chatlist.append(chat)
-        
+
         if self.first and chatlist:
             self.abs_diff = time.time() - chatlist[0].timestamp / 1000
             self.first = False

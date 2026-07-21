@@ -57,13 +57,17 @@ class JsonfileArchiver(ChatProcessor):
         extention = splitter[1]
         newpath = filepath
         counter = 0
-        while os.path.exists(newpath):
-            match = re.search(PATTERN, body)
-            if match:
-                counter = int(match[2]) + 1
-                num_with_bracket = f'({str(counter)})'
-                body = f'{match[1]}{num_with_bracket}'
-            else:
-                body = f'{body}({str(counter)})'
-            newpath = os.path.join(os.path.dirname(filepath), body + extention)
-        return newpath
+        while True:
+            try:
+                with open(newpath, mode='x', encoding='utf-8'):
+                    pass
+                return newpath
+            except FileExistsError:
+                match = re.search(PATTERN, body)
+                if match:
+                    counter = int(match[2]) + 1
+                    num_with_bracket = f'({str(counter)})'
+                    body = f'{match[1]}{num_with_bracket}'
+                else:
+                    body = f'{body}({str(counter)})'
+                newpath = os.path.join(os.path.dirname(filepath), body + extention)

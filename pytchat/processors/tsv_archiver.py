@@ -17,7 +17,8 @@ class TSVArchiver(ChatProcessor):
     def __init__(self, save_path):
         super().__init__()
         self.save_path = self._checkpath(save_path)
-        with open(self.save_path, mode='a', encoding='utf-8') as f:
+        # Открываем в режиме 'w', так как файл гарантированно пуст после атомарного создания в _checkpath
+        with open(self.save_path, mode='w', encoding='utf-8') as f:
             writer = csv.writer(f, delimiter='\t')
             writer.writerow(fmt_headers)
         self.processor = DefaultProcessor()
@@ -28,16 +29,20 @@ class TSVArchiver(ChatProcessor):
         extention = splitter[1]
         newpath = filepath
         counter = 0
-        while os.path.exists(newpath):
-            match = re.search(PATTERN, body)
-            if match:
-                counter = int(match[2]) + 1
-                num_with_bracket = f'({str(counter)})'
-                body = f'{match[1]}{num_with_bracket}'
-            else:
-                body = f'{body}({str(counter)})'
-            newpath = os.path.join(os.path.dirname(filepath), body + extention)
-        return newpath
+        while True:
+            try:
+                with open(newpath, mode='x', encoding='utf-8'):
+                    pass
+                return newpath
+            except FileExistsError:
+                match = re.search(PATTERN, body)
+                if match:
+                    counter = int(match[2]) + 1
+                    num_with_bracket = f'({str(counter)})'
+                    body = f'{match[1]}{num_with_bracket}'
+                else:
+                    body = f'{body}({str(counter)})'
+                newpath = os.path.join(os.path.dirname(filepath), body + extention)
 
     def process(self, chat_components: list):
         """
