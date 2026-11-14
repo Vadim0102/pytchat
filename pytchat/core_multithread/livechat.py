@@ -180,7 +180,8 @@ class LiveChat:
                     chat_component = {
                         "video_id": self._video_id,
                         "timeout": timeout,
-                        "chatdata": chatdata
+                        "chatdata": chatdata,
+                        "updates": metadata.get('updates', [])
                     }
                     time_mark = time.time()
                     if self._direct_mode:

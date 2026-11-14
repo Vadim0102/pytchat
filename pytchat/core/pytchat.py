@@ -1,5 +1,7 @@
 import httpx
 import json
+import logging
+import os
 import signal
 import time
 import traceback
@@ -66,9 +68,13 @@ class PytchatCore:
                  force_replay=False,
                  topchat_only=False,
                  hold_exception=True,
-                 logger=config.logger(__name__),
-                 replay_continuation=None
+                 logger=None,
+                 replay_continuation=None,
+                 verbose=False
                  ):
+        if logger is None:
+            env_verbose = str(os.environ.get('PYTCHAT_VERBOSE_LOGS', '')).lower() in {'1', 'true', 'yes', 'on'}
+            logger = config.logger(__name__, logging.DEBUG if (verbose or env_verbose) else logging.INFO)
         if client is None:
             client = httpx.Client(http2=True)
         self._client = client
@@ -92,6 +98,7 @@ class PytchatCore:
         self._dat = ''
         self._last_offset_ms = 0
         self._logger = logger
+        self._logger.debug(f"Initialized PytchatCore for video_id={self._video_id}, seektime={seektime}, replay={self._is_replay}, verbose={verbose or str(os.environ.get('PYTCHAT_VERBOSE_LOGS', '')).lower() in {'1','true','yes','on'}}")
         self.continuation = replay_continuation
         if interruptable:
             signal.signal(signal.SIGINT, lambda a, b: self.terminate())
@@ -103,10 +110,14 @@ class PytchatCore:
             """Fetch first continuation parameter,
             create and start _listen loop.
             """
+            self._logger.debug(f"Fetching initial continuation for video_id={self._video_id}")
+            channel_id = util.get_channelid(self._client, self._video_id)
+            self._logger.debug(f"Resolved channel_id={channel_id} for video_id={self._video_id}")
             self.continuation = liveparam.getparam(
                 self._video_id,
-                channel_id=util.get_channelid(self._client, self._video_id),
+                channel_id=channel_id,
                 past_sec=3)
+            self._logger.debug(f"Initial continuation acquired for video_id={self._video_id}: {self.continuation[:30]}...")
 
     def _get_chat_component(self):
         ''' Fetch chat data and store them into buffer,
@@ -119,16 +130,24 @@ class PytchatCore:
         '''
         try:
             if self.continuation and self._is_alive:
+                self._logger.debug(f"Requesting next chat batch for video_id={self._video_id}, continuation={self.continuation[:30]}...")
                 contents = self._get_contents(self.continuation, self._client, headers)
                 metadata, chatdata = self._parser.parse(contents)
+                chatdata = chatdata or []
                 timeout = metadata['timeoutMs'] / 1000
                 chat_component = {
                     "video_id": self._video_id,
                     "timeout": timeout,
-                    "chatdata": chatdata
+                    "chatdata": chatdata,
+                    "updates": metadata.get('updates', [])
                 }
                 self.continuation = metadata.get('continuation')
                 self._last_offset_ms = metadata.get('last_offset_ms', 0)
+                self._logger.debug(
+                    f"Received chat batch for video_id={self._video_id}: items={len(chatdata) if chatdata else 0}, "
+                    f"updates={len(metadata.get('updates', []))}, "
+                    f"timeout={timeout}s, next_continuation={bool(self.continuation)}"
+                )
                 return chat_component
         except exceptions.ChatParseException as e:
             self._logger.debug(f"[{self._video_id}]{str(e)}")
@@ -146,6 +165,7 @@ class PytchatCore:
           -------
             'continuationContents' which includes metadata & chat data.
         '''
+        self._logger.debug(f"Fetching livechat payload for video_id={self._video_id}, replay={self._is_replay}, offset_ms={self._last_offset_ms}")
         livechat_json = self._get_livechat_json(
             continuation, client, replay=self._is_replay, offset_ms=self._last_offset_ms)
         contents, dat = self._parser.get_contents(livechat_json)
@@ -154,15 +174,18 @@ class PytchatCore:
         if self._first_fetch:
             if contents is None or self._is_replay:
                 '''Try to fetch archive chat data.'''
+                self._logger.debug(f"Falling back to archived chat for video_id={self._video_id}")
                 self._parser.is_replay = True
                 self._fetch_url = config._smr
+                channel_id = util.get_channelid(client, self._video_id)
                 continuation = arcparam.getparam(
-                    self._video_id, self.seektime, self._topchat_only, util.get_channelid(client, self._video_id))
+                    self._video_id, self.seektime, self._topchat_only, channel_id)
                 livechat_json = self._get_livechat_json(
                     continuation, client, replay=True, offset_ms=self.seektime * 1000)
                 reload_continuation = self._parser.reload_continuation(
                     self._parser.get_contents(livechat_json)[0])
                 if reload_continuation:
+                    self._logger.debug(f"Reloading continuation for replay fetch: {reload_continuation[:30]}...")
                     livechat_json = (self._get_livechat_json(
                         reload_continuation, client, headers))
                 contents, _ = self._parser.get_contents(livechat_json)
@@ -179,13 +202,16 @@ class PytchatCore:
         if offset_ms < 0:
             offset_ms = 0
         param = util.get_param(continuation, dat=self._dat, replay=replay, offsetms=offset_ms)
-        for _ in range(MAX_RETRY + 1):
+        self._logger.debug(f"POST livechat fetch for video_id={self._video_id}, replay={replay}, offset_ms={offset_ms}")
+        for attempt in range(1, MAX_RETRY + 2):
             try:
                 response = client.post(self._fetch_url, json=param)
                 livechat_json = response.json()
+                self._logger.debug(f"Livechat fetch succeeded for video_id={self._video_id} on attempt {attempt}")
                 break
             except (json.JSONDecodeError, httpx.ConnectTimeout, httpx.ReadTimeout, httpx.ConnectError) as e:
                 err = e
+                self._logger.debug(f"Livechat fetch failed for video_id={self._video_id} on attempt {attempt}/{MAX_RETRY + 1}: {e}")
                 time.sleep(2)
                 continue
         else:
@@ -195,11 +221,14 @@ class PytchatCore:
         return livechat_json
 
     def get(self):
-        if self.is_alive():
-            chat_component = self._get_chat_component()
-            return self.processor.process([chat_component])
-        else:
+        if not self.is_alive():
             return []
+
+        chat_component = self._get_chat_component()
+        if chat_component is None:
+            return []
+
+        return self.processor.process([chat_component])
 
     def is_replay(self):
         return self._is_replay

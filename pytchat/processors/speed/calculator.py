@@ -103,6 +103,8 @@ class SpeedCalculator(ChatProcessor, RingQueue):
         chatdata = []
         if chat_components:
             for component in chat_components:
+                if not isinstance(component, dict):
+                    continue
                 if component.get("chatdata"):
                     chatdata.extend(component.get("chatdata"))
 

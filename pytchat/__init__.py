@@ -40,6 +40,7 @@ from .api import (
     SimpleDisplayProcessor,
     SpeedCalculator,
     SuperchatCalculator,
+    parse_raw_chat_action,
     create
 )
 # flake8: noqa

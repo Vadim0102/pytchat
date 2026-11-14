@@ -13,6 +13,7 @@ from .processors.jsonfile_archiver import JsonfileArchiver
 from .processors.simple_display_processor import SimpleDisplayProcessor
 from .processors.speed.calculator import SpeedCalculator
 from .processors.superchat.calculator import SuperchatCalculator
+from .processors.raw_parser import parse_raw_chat_action
 
 
 __all__ = [
@@ -30,6 +31,7 @@ __all__ = [
     SimpleDisplayProcessor,
     SpeedCalculator,
     SuperchatCalculator,
+    parse_raw_chat_action,
     create
 ]
 

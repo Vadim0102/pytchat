@@ -32,8 +32,33 @@ class Parser:
             raise exceptions.ResponseContextError(
                 'The video_id would be wrong, or video is deleted or private.')
         contents = jsn.get('continuationContents')
+        updates = self._find_emoji_fountain_updates(jsn)
+        if contents is not None and updates:
+            contents = dict(contents)
+            live_chat = contents.get('liveChatContinuation')
+            if live_chat is not None:
+                live_chat = dict(live_chat)
+                live_chat['_pytchat_updates'] = updates
+                contents['liveChatContinuation'] = live_chat
         visitor_data = jsn.get("responseContext", {}).get("visitorData")
         return contents, visitor_data
+
+    def _find_emoji_fountain_updates(self, value):
+        updates = []
+
+        def visit(node):
+            if isinstance(node, dict):
+                entity = node.get('emojiFountainDataEntity')
+                if isinstance(entity, dict):
+                    updates.append(entity)
+                for child in node.values():
+                    visit(child)
+            elif isinstance(node, list):
+                for child in node:
+                    visit(child)
+
+        visit(value)
+        return updates
 
     def parse(self, contents):
         """
@@ -97,7 +122,9 @@ class Parser:
         self.raise_exception(exceptions.ChatDataFinished('Finished chat data'))
 
     def _create_data(self, metadata, contents):
-        actions = contents['liveChatContinuation'].get('actions')
+        live_chat = contents['liveChatContinuation']
+        actions = live_chat.get('actions') or []
+        updates = live_chat.get('_pytchat_updates') or []
         if self.is_replay:
             last_offset_ms = self._get_lastoffset(actions)
             metadata.setdefault("timeoutMs", 5000)
@@ -109,6 +136,9 @@ class Parser:
         else:
             metadata.setdefault('timeoutMs', 5000)
             chatdata = actions
+        if updates:
+            metadata = dict(metadata)
+            metadata['updates'] = updates
         return metadata, chatdata
 
     def _get_lastoffset(self, actions: list):

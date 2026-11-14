@@ -59,11 +59,76 @@ while chat.is_alive():
     """
 ```
 
+### Raw chat events and emoji reactions
+
+Use `DummyProcessor` to receive YouTube's raw chat actions. Reaction updates are
+provided separately in each component's `updates` list; they are not chat
+messages and may arrive in batches with no chat actions. `parse_raw_chat_action`
+parses a raw chat action or an `emojiFountainDataEntity` update:
+
+```python
+import pytchat
+
+chat = pytchat.create(
+    "VIDEO_ID",
+    processor=pytchat.DummyProcessor(),
+    interruptable=False,
+)
+
+while chat.is_alive():
+    for component in chat.get() or []:
+        for action in component.get("chatdata") or []:
+            event = pytchat.parse_raw_chat_action(action)
+            if event and event["type"] == "textMessage":
+                print(event["author"]["name"], event["message"])
+                # Inline emojis in a message are in event["emojis"].
+
+        for update in component.get("updates") or []:
+            event = pytchat.parse_raw_chat_action(update)
+            if event and event["type"] == "emoji_fountain_update":
+                for bucket in event["reactionBuckets"]:
+                    for reaction in bucket["reactionsData"]:
+                        print(reaction["unicodeEmojiId"], reaction["reactionCount"])
+```
+
+Emoji-fountain events contain aggregate reaction counts, duration, and
+intensity. YouTube controls whether and when these updates are sent, so a stream
+may not provide them on every poll. Empty `chatdata` or `updates` lists are
+normal.
+
+### Verbose update logs
+
+Enable detailed fetch and continuation logs with `verbose=True`:
+
+```python
+chat = pytchat.create("VIDEO_ID", verbose=True, interruptable=False)
+```
+
+Alternatively, set `PYTCHAT_VERBOSE_LOGS=1` before starting the program. Debug
+logs are written to the console and to `log.txt`.
+
 ### Other examples
 
 - Fetch chat with a buffer ([LiveChat](https://github.com/taizan-hokuto/pytchat/wiki/LiveChat))
 - Use with asyncio ([LiveChatAsync](https://github.com/taizan-hokuto/pytchat/wiki/LiveChatAsync))
 - YouTube API-compatible chat processor ([CompatibleProcessor](https://github.com/taizan-hokuto/pytchat/wiki/CompatibleProcessor))
+
+## Tests
+
+Run the local test suite with:
+
+```bash
+pytest
+```
+
+Tests that connect to real YouTube streams are opt-in:
+
+```bash
+PYTCHAT_LIVE_TESTS=1 pytest tests/test_real_streams.py
+```
+
+In PowerShell, enable them with
+`$env:PYTCHAT_LIVE_TESTS = "1"; pytest tests/test_real_streams.py`.
 
 ## Default Processor Structure
 

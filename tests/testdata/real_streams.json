@@ -1,0 +1,22 @@
+{
+  "live_streams": [
+    {
+      "video_id": "5qap5aO4i9A",
+      "label": "lofi girl - live 24/7"
+    },
+    {
+      "video_id": "jfKfPfyJRdk",
+      "label": "lofi hip hop radio"
+    }
+  ],
+  "channel_samples": [
+    {
+      "video_id": "5qap5aO4i9A",
+      "channel_hint": "UC"
+    },
+    {
+      "video_id": "jfKfPfyJRdk",
+      "channel_hint": "UC"
+    }
+  ]
+}

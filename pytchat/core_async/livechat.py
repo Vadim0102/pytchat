@@ -187,7 +187,8 @@ class LiveChatAsync:
                 chat_component = {
                     "video_id": self._video_id,
                     "timeout": timeout,
-                    "chatdata": chatdata
+                    "chatdata": chatdata,
+                    "updates": metadata.get('updates', [])
                 }
                 if self._direct_mode:
                     processed_chat = self.processor.process(
